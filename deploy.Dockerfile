@@ -1,38 +1,52 @@
-FROM golang as build
+FROM golang:1.15 as build
 
-# go mod Installation source, container environment variable addition will override the default variable value
-ENV GO111MODULE=on
-ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on \
+    GOPROXY=https://goproxy.cn,direct
 
 # Set up the working directory
 WORKDIR /Open-IM-Server
+
+# go mod
+COPY go.mod go.sum ./
+RUN go mod download
+
 # add all files to the container
 COPY . .
 
 WORKDIR /Open-IM-Server/script
-RUN chmod +x *.sh
 
-RUN /bin/sh -c ./build_all_service.sh
+RUN chmod +x *.sh && \
+    /bin/sh -c ./build_all_service.sh
 
 #Blank image Multi-Stage Build
-FROM ubuntu
+FROM debian:11.1
 
-RUN rm -rf /var/lib/apt/lists/*
-RUN apt-get update && apt-get install apt-transport-https && apt-get install procps\
-&&apt-get install net-tools
-#Non-interactive operation
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get install -y vim curl tzdata gawk
-#Time zone adjusted to East eighth District
-RUN ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && dpkg-reconfigure -f noninteractive tzdata
+ENV TZ=Asia/Shanghai \
+    LANG=C.UTF-8
 
-
-#set directory to map logs,config file,script file.
-VOLUME ["/Open-IM-Server/logs","/Open-IM-Server/config","/Open-IM-Server/script","/Open-IM-Server/db/sdk"]
+RUN sed -i s/deb.debian.org/mirrors.aliyun.com/g /etc/apt/sources.list && \
+    apt update && \
+    apt install -y ca-certificates tzdata && \
+    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
 
 #Copy scripts files and binary files to the blank image
 COPY --from=build /Open-IM-Server/script /Open-IM-Server/script
 COPY --from=build /Open-IM-Server/bin /Open-IM-Server/bin
+
+# 42233 -> demo server
+# 10000 -> api server
+# 17788 -> gateway websocket server
+# 10100 -> user rpc server
+# 10200 -> friend rpc server
+# 10300 -> chat rpc server
+# 10400 -> gateway rpc server
+# 10500 -> group rpc server
+# 10600 -> auth rpc server
+# 10700 -> push rpc server
+EXPOSE 42233 10000 17778 10100 10200 10300 10400 10500 10600 10700
+
+VOLUME ["/Open-IM-Server/logs", "/Open-IM-Server/config"]
 
 WORKDIR /Open-IM-Server/script
 

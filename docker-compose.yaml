@@ -3,109 +3,113 @@ version: "3"
 
 services:
   mysql:
-    image: mysql:5.7
-    ports:
-      - 13306:3306
-      - 23306:33060
-    container_name: mysql
-    volumes:
-      - ./components/mysql/data:/var/lib/mysql
-      - /etc/localtime:/etc/localtime
+    image: mysql:8.0.27
+    command: --default-authentication-plugin=mysql_native_password
     environment:
-      MYSQL_ROOT_PASSWORD: openIM
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./openim/mysql/data:/var/lib/mysql
     restart: always
 
-  mongodb:
-    image: mongo:4.0
+  adminer:
+    image: adminer:4.8.1-standalone
+    environment:
+      TZ: Asia/Shanghai
     ports:
-      - 37017:27017
-    container_name: mongo
-    volumes:
-      - ./components/mongodb/data/db:/data/db
-      - ./components/mongodb/data/logs:/data/logs
-      - ./components/mongodb/data/conf:/etc/mongo
-#    environment:
-#      - MONGO_INITDB_ROOT_USERNAME=openIM
-#      - MONGO_INITDB_ROOT_PASSWORD=openIM
+      - "18080:8080"
+    restart: always
 
-      #TZ: Asia/Shanghai
+  mongo:
+    image: mongo:4.0.27
+    environment:
+      TZ: Asia/Shanghai
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    volumes:
+      - ./openim/mongo/data:/data/db
+    restart: always
+
+  mongo-express:
+    image: mongo-express:0.54.0
+    environment:
+      TZ: Asia/Shanghai
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+    ports:
+      - "18081:8081"
     restart: always
 
   redis:
-    image: redis
-    ports:
-      - 16379:6379
-    container_name: redis
-    volumes:
-      - ./components/redis/data:/data
-      #redis config file
-      #- ./components/redis/config/redis.conf:/usr/local/redis/config/redis.conf
+    image: redis:6.2.6-alpine3.15
+    command: redis-server --requirepass root --save 60 1 --loglevel warning
     environment:
       TZ: Asia/Shanghai
-    restart: always
+    volumes:
+      - ./openim/redis/data:/data
     sysctls:
       net.core.somaxconn: 1024
-    command: redis-server --requirepass openIM --appendonly yes
-
+    restart: always
 
   zookeeper:
-    image: wurstmeister/zookeeper
-    ports:
-      - 2181:2181
-    container_name: zookeeper
-    volumes:
-      - /etc/localtime:/etc/localtime
+    image: wurstmeister/zookeeper:3.4.6
     environment:
       TZ: Asia/Shanghai
     restart: always
 
-
   kafka:
-    image: wurstmeister/kafka
-    container_name: kafka
-    restart: always
+    image: wurstmeister/kafka:2.13-2.8.1
     environment:
       TZ: Asia/Shanghai
       KAFKA_BROKER_ID: 0
-      KAFKA_ZOOKEEPER_CONNECT: 127.0.0.1:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-    network_mode: "host"
     depends_on:
       - zookeeper
+    restart: always
 
   etcd:
-    image: quay.io/coreos/etcd
-    ports:
-      - 2379:2379
-      - 2380:2380
-    container_name: etcd
-    volumes:
-      - /etc/timezone:/etc/timezone
-      - /etc/localtime:/etc/localtime
+    image: quay.io/coreos/etcd:v3.5.1
+    command: |
+      /usr/local/bin/etcd
+      --name etcd0
+      --data-dir /etcd-data
+      --listen-client-urls http://0.0.0.0:2379
+      --advertise-client-urls http://0.0.0.0:2379
+      --listen-peer-urls http://0.0.0.0:2380
+      --initial-advertise-peer-urls http://0.0.0.0:2380
+      --initial-cluster etcd0=http://0.0.0.0:2380
+      --initial-cluster-token tkn
+      --initial-cluster-state new
+      --log-level info
+      --logger zap
+      --log-outputs stderr
     environment:
-      ETCDCTL_API: 3
+      TZ: Asia/Shanghai
+    volumes:
+      - ./openim/etcd/data:/etcd-data
     restart: always
-    command: /usr/local/bin/etcd --name etcd0 --data-dir /etcd-data --listen-client-urls http://0.0.0.0:2379 --advertise-client-urls http://0.0.0.0:2379 --listen-peer-urls http://0.0.0.0:2380 --initial-advertise-peer-urls http://0.0.0.0:2380 --initial-cluster etcd0=http://0.0.0.0:2380 --initial-cluster-token tkn --initial-cluster-state new
 
   open_im_server:
-    image: openim/open_im_server
-    container_name: open_im_server
+    build:
+      context: .
+      dockerfile: deploy.Dockerfile
     volumes:
-      - ./logs:/Open-IM-Server/logs
-      - ./config/config.yaml:/Open-IM-Server/config/config.yaml
-      - ./db/sdk:/Open-IM-Server/db/sdk
-      - ./script:/Open-IM-Server/script
-    restart: always
+      - ./openim/Open-IM-Server/config/config.yaml:/Open-IM-Server/config/config.yaml
+    ports:
+      - "42233:42233"
+      - "10000:10000"
+      - "17778:17778"
     depends_on:
       - kafka
       - mysql
-      - mongodb
+      - mongo
       - redis
       - etcd
-    network_mode: "host"
     logging:
       driver: json-file
       options:
         max-size: "1g"
         max-file: "2"
+    restart: always

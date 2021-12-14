@@ -1,0 +1,38 @@
+### demo server
+POST http://localhost:42233/auth/password
+Content-Type: application/json
+
+{
+  "email": "test@demo.com",
+  "password": "test",
+  "verificationCode": "666666"
+}
+
+### api server register user
+POST http://localhost:10000/auth/user_register
+Content-Type: application/json
+
+{
+  "secret": "tuoyun",
+  "platform": 2,
+  "uid": "uid-demo1",
+  "email": "demo1@demo.com",
+  "name": "demo1",
+  "gender": 1,
+  "birth": "1990-01-01"
+}
+
+###
+POST http://localhost:10000/auth/user_token
+Content-Type: application/json
+
+{
+  "secret": "tuoyun",
+  "platform": 8,
+  "uid": "openIM123456"
+}
+
+###
+POST http://localhost:10000/friend/im
+
+
