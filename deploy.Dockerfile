@@ -26,7 +26,7 @@ ENV TZ=Asia/Shanghai \
 
 RUN sed -i s/deb.debian.org/mirrors.aliyun.com/g /etc/apt/sources.list && \
     apt update && \
-    apt install -y ca-certificates tzdata && \
+    apt install -y ca-certificates tzdata procps net-tools gawk && \
     ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 
