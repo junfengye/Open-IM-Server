@@ -55,6 +55,8 @@ services:
     image: wurstmeister/zookeeper:3.4.6
     environment:
       TZ: Asia/Shanghai
+    volumes:
+      - ./openim/zookeeper/data:/opt/zookeeper-3.4.6/data
     restart: always
 
   kafka:
@@ -65,6 +67,8 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+    volumes:
+      - ./openim/kafka:/kafka
     depends_on:
       - zookeeper
     restart: always
